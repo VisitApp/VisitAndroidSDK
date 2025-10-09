@@ -157,10 +157,12 @@ class MainActivity : AppCompatActivity() {
                 VisitEventType.AskForFitnessPermission -> {
 
                 }
+
                 VisitEventType.AskForLocationPermission -> {
 
 
                 }
+
                 is VisitEventType.FitnessPermissionGranted -> {
                     val data = event.eventType as VisitEventType.FitnessPermissionGranted
 
@@ -184,22 +186,26 @@ class MainActivity : AppCompatActivity() {
                     )
 
                 }
+
                 is VisitEventType.RequestHealthDataForDetailedGraph -> {
 
                     val graphEvent =
                         event.eventType as VisitEventType.RequestHealthDataForDetailedGraph
 
                 }
+
                 is VisitEventType.StartVideoCall -> {
                     val callEvent =
                         event.eventType as VisitEventType.StartVideoCall
 
 
                 }
+
                 is VisitEventType.HRA_Completed -> {
 
 
                 }
+
                 is VisitEventType.GoogleFitConnectedAndSavedInPWA -> {
                     Handler(Looper.getMainLooper()).postDelayed({
                         //passing event to Visit PWA to close itself
@@ -208,6 +214,7 @@ class MainActivity : AppCompatActivity() {
 
                     }, 200)
                 }
+
                 is VisitEventType.HRAQuestionAnswered -> {
                     // can be used for analytics events
                     val hraQuestionEvent = event.eventType as VisitEventType.HRAQuestionAnswered
@@ -216,6 +223,7 @@ class MainActivity : AppCompatActivity() {
                         "current:${hraQuestionEvent.current} total:${hraQuestionEvent.total}"
                     )
                 }
+
                 VisitEventType.ConsultationBooked -> {
                     Log.d("mytag", "MainActivity ConsultationBooked event")
                 }
@@ -236,6 +244,7 @@ class MainActivity : AppCompatActivity() {
 
                     Log.d("mytag", "eventData: ${eventData.message}")
                 }
+
                 is VisitEventType.NetworkError -> {
                     val eventData = event.eventType as VisitEventType.NetworkError
 
@@ -246,6 +255,7 @@ class MainActivity : AppCompatActivity() {
                     Log.d("mytag", "errStatus: $errStatus, error: $error")
 
                 }
+
                 is VisitEventType.VisitCallBack -> {
                     val eventData = event.eventType as VisitEventType.VisitCallBack
 
@@ -264,15 +274,9 @@ class MainActivity : AppCompatActivity() {
 
     fun init() {
 
-//        val magicLink =
-//            "https://web.getvisitapp.xyz/"
 
         val magicLink =
-            "https://tata-aig.getvisitapp.net/sso?userParams=IB8TblsHsykEk5G4ozVgeJd67ZTJtZdir7kK6DvNNOO3sZpHVNNenCzwKIeOu8hYSSlUnnGcvxMkk3D5hbx7momUBbBgrQoffKISVpm7I4vHPtCdcZLd7wlQwaYRoHL94UJyv2WX5WTwV3JmAMRZK1RFlo7zNiEyMkDowRvJLD-ThfMSEGSkxQmzN5t-rq22QhXwV2kbos06h2Mry5YQ1XBQCqMJcjHBREGt_mhowMcrB37__K6pDvxuSMPVtZOGMc-V9h_wf7uRoqUG7ORH3x8OW37VdVs6XflrpgDYxbWxTgvUFwzBNeqCuPbnLFBcH3UjwVvk7SBNakW5oAh74Q&clientId=tata-aig-a8b455"
-
-
-//        val magicLink =
-//            "https://star-health.getvisitapp.com/?mluib7c=QNkg98jB"
+            BuildConfig.MAGIC_LINK
 
 
         IntiateSdk.s(
