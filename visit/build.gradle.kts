@@ -30,7 +30,6 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            isMinifyEnabled = true
         }
         debug {
             buildConfigField("String", "APP_MODE", "\"DEBUG\"")

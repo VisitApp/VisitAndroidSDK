@@ -8,7 +8,6 @@ plugins {
 }
 
 
-
 val localProperties = Properties().apply {
     val file = rootProject.file("local.properties")
     if (file.exists()) {
@@ -39,9 +38,22 @@ android {
         buildConfigField("String", "TATA_AIG_AUTH_TOKEN", "\"${TATA_AIG_AUTH_TOKEN ?: ""}\"")
     }
 
+    signingConfigs {
+        create("config") {
+            keyAlias = "key0"
+            keyPassword = "QWERTY1234@"
+            storeFile = file("${rootDir}/keystore.jks")
+            storePassword = "QWERTY1234@"
+        }
+    }
+
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("config")
+            isDebuggable = false
+            isShrinkResources = true
+            isMinifyEnabled = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
