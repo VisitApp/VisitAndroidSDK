@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:blurkit="http://schemas.android.com/apk/res-auto"
+    xmlns:app="http://schemas.android.com/tools"
+    android:id="@+id/parent"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/gradient_video_call"
+    android:orientation="horizontal">
+
+
+    <de.hdodenhof.circleimageview.CircleImageView
+        android:id="@+id/image"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginLeft="20dp"
+        android:layout_marginTop="20dp"
+        android:src="@drawable/doctorplaceholder"
+        app:civ_border_width="0dp" />
+
+    <TextView
+        android:id="@+id/title"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginLeft="12dp"
+        android:layout_marginTop="20dp"
+        android:layout_toEndOf="@+id/image"
+        android:layout_toRightOf="@+id/image"
+        android:fontFamily="@font/inter_bold"
+        android:lineHeight="19sp"
+        android:textColor="@android:color/white"
+        android:textSize="16dp" />
+
+
+    <TextView
+        android:id="@+id/duration"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/title"
+        android:layout_marginLeft="12dp"
+        android:layout_marginTop="1dp"
+        android:layout_toRightOf="@+id/image"
+        android:fontFamily="@font/inter_regular"
+        android:lineHeight="17sp"
+        android:text="Connecting.."
+        android:textColor="@android:color/white"
+        android:textSize="14dp" />
+
+    <ImageView
+        android:id="@+id/end_call"
+        android:layout_width="42dp"
+        android:layout_height="42dp"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentRight="true"
+        android:layout_marginTop="20dp"
+        android:layout_marginRight="20dp"
+        blurkit:srcCompat="@drawable/ic_call_cut" />
+
+    <View
+        android:id="@+id/line"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_below="@+id/end_call"
+        android:layout_marginLeft="50dp"
+        android:layout_marginTop="20dp"
+        android:layout_marginRight="50dp"
+        android:background="#08FFFFFF" />
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@+id/line"
+        android:layout_marginLeft="42dp"
+        android:layout_marginTop="19dp"
+        android:layout_marginRight="42dp"
+        android:layout_marginBottom="18dp"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/local_video_action_fab"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            blurkit:srcCompat="@drawable/ic_video_on" />
+
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="0.1" />
+
+
+        <ImageView
+            android:id="@+id/mute_action_fab"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            blurkit:srcCompat="@drawable/ic_mic_on" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:layout_weight="0.1" />
+
+
+        <ImageView
+            android:id="@+id/switch_camera_action_fab"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            blurkit:srcCompat="@drawable/ic_call_mute" />
+
+    </LinearLayout>
+
+
+</RelativeLayout>
