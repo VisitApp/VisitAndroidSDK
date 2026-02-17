@@ -46,7 +46,6 @@ import com.getvisitapp.google_fit.network.ApiService;
 import com.getvisitapp.google_fit.presenter.TwillioVideoPresenter;
 import com.getvisitapp.google_fit.util.AudioHelper;
 import com.getvisitapp.google_fit.util.CameraCapturerCompat;
-import com.getvisitapp.google_fit.util.ViewExtensionKt;
 import com.getvisitapp.google_fit.view.TwillioVideoView;
 import com.twilio.audioswitch.AudioDevice;
 import com.twilio.audioswitch.AudioSwitch;
@@ -194,7 +193,6 @@ public class TwillioVideoCallActivity extends AppCompatActivity implements Twill
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_twillio_video_call);
 
-        ViewExtensionKt.makeStatusBarTransparent(this);
         consultationId = getIntent().getIntExtra("consultationId", 0);
         authToken = getIntent().getStringExtra("authToken");
         sessionId = getIntent().getIntExtra("sessionId", 0);
