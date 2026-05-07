@@ -126,7 +126,7 @@ afterEvaluate {
                 from(components["release"])
                 groupId = "com.getvisitapp"
                 artifactId = "visit"
-                version = "1.92"
+                version = "1.93"
             }
         }
     }
