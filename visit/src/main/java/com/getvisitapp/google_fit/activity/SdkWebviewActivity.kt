@@ -62,7 +62,9 @@ import org.greenrobot.eventbus.ThreadMode
 import org.json.JSONException
 import org.json.JSONObject
 import tvi.webrtc.ContextUtils
+import java.io.File
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 
 /**
@@ -112,6 +114,7 @@ class SdkWebviewActivity : AppCompatActivity(), VideoCallListener, GoogleFitStat
 
     lateinit var sharedPrefUtil: SharedPrefUtil
     lateinit var pdfDownloader: PdfDownloader
+    private val recentlySharedPdfUrls = ConcurrentHashMap<String, Long>()
 
 
     var visitApiBaseUrl: String? = null
@@ -167,6 +170,8 @@ class SdkWebviewActivity : AppCompatActivity(), VideoCallListener, GoogleFitStat
 
 
     companion object {
+        private const val PDF_SHARE_DEBOUNCE_MS = 3_000L
+
         fun getIntent(
             context: Context,
             isDebug: Boolean,
@@ -229,20 +234,7 @@ class SdkWebviewActivity : AppCompatActivity(), VideoCallListener, GoogleFitStat
                         pdfUrl = url,
                         authorization = authtoken!!,
                         onDownloadComplete = {
-                            val shareIntent = Intent().apply {
-                                action = Intent.ACTION_SEND
-                                putExtra(
-                                    Intent.EXTRA_STREAM, FileProvider.getUriForFile(
-                                        applicationContext,
-                                        applicationContext.packageName + AUTHORITY_SUFFIX,
-                                        it
-                                    )
-                                )
-                                flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                                type = "application/pdf"
-                            }
-                            val sendIntent = Intent.createChooser(shareIntent, null)
-                            startActivity(sendIntent)
+                            sharePdfFile(url, it)
                         },
                         onDownloadFailed = {
                             Log.d(
@@ -975,20 +967,7 @@ class SdkWebviewActivity : AppCompatActivity(), VideoCallListener, GoogleFitStat
             authorization = authtoken!!,
             onDownloadComplete = {
                 if (toShare) {
-                    val uri = FileProvider.getUriForFile(
-                        applicationContext,
-                        applicationContext.packageName + AUTHORITY_SUFFIX,
-                        it
-                    )
-                    val shareIntent = Intent().apply {
-                        action = Intent.ACTION_SEND
-                        putExtra(Intent.EXTRA_STREAM, uri)
-                        clipData = ClipData.newUri(contentResolver, it.name, uri)
-                        flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        type = "application/pdf"
-                    }
-                    val sendIntent = Intent.createChooser(shareIntent, null)
-                    startActivity(sendIntent)
+                    sharePdfFile(url, it)
                 } else {
                     try {
                         val uri = FileProvider.getUriForFile(
@@ -1015,6 +994,34 @@ class SdkWebviewActivity : AppCompatActivity(), VideoCallListener, GoogleFitStat
                     e.printStackTrace()
                 }
             })
+    }
+
+    private fun sharePdfFile(sourceUrl: String, file: File) {
+        val currentTime = System.currentTimeMillis()
+        val lastSharedAt = recentlySharedPdfUrls[sourceUrl]
+        if (lastSharedAt != null && currentTime - lastSharedAt < PDF_SHARE_DEBOUNCE_MS) {
+            Log.d(TAG, "sharePdfFile() duplicate share skipped for url:$sourceUrl")
+            return
+        }
+        recentlySharedPdfUrls[sourceUrl] = currentTime
+        recentlySharedPdfUrls.entries.removeIf {
+            currentTime - it.value >= PDF_SHARE_DEBOUNCE_MS
+        }
+
+        val uri = FileProvider.getUriForFile(
+            applicationContext,
+            applicationContext.packageName + AUTHORITY_SUFFIX,
+            file
+        )
+        val shareIntent = Intent().apply {
+            action = Intent.ACTION_SEND
+            putExtra(Intent.EXTRA_STREAM, uri)
+            clipData = ClipData.newUri(contentResolver, file.name, uri)
+            flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+            type = "application/pdf"
+        }
+        val sendIntent = Intent.createChooser(shareIntent, null)
+        startActivity(sendIntent)
     }
 
     override fun openDependentLink(link: String?) {
