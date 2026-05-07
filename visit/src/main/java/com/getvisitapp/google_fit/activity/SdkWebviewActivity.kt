@@ -2,6 +2,7 @@ package com.getvisitapp.google_fit.activity
 
 import android.Manifest
 import android.app.Activity
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -959,7 +960,7 @@ class SdkWebviewActivity : AppCompatActivity(), VideoCallListener, GoogleFitStat
 
 
     override fun downloadHraLink(url: String, toShare: Boolean) {
-        Log.d("mytag", "downloadHraLink() link:$url")
+        Log.d("mytag", "downloadHraLink() link:$url, toShare: $toShare")
 
         EventBus.getDefault().post(
             MessageEvent(
@@ -974,15 +975,15 @@ class SdkWebviewActivity : AppCompatActivity(), VideoCallListener, GoogleFitStat
             authorization = authtoken!!,
             onDownloadComplete = {
                 if (toShare) {
+                    val uri = FileProvider.getUriForFile(
+                        applicationContext,
+                        applicationContext.packageName + AUTHORITY_SUFFIX,
+                        it
+                    )
                     val shareIntent = Intent().apply {
-                        action = Intent.ACTION_VIEW
-                        putExtra(
-                            Intent.EXTRA_STREAM, FileProvider.getUriForFile(
-                                applicationContext,
-                                applicationContext.packageName + AUTHORITY_SUFFIX,
-                                it
-                            )
-                        )
+                        action = Intent.ACTION_SEND
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        clipData = ClipData.newUri(contentResolver, it.name, uri)
                         flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
                         type = "application/pdf"
                     }

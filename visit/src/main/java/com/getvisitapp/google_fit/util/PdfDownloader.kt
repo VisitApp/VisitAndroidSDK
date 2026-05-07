@@ -44,6 +44,7 @@ class PdfDownloader {
             )
             retroServiceInterface.downloadPdfFile(pdfUrl, authorization = authorization).enqueue(object : Callback<ResponseBody> {
                 override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
+                    t.printStackTrace()
                     onDownloadFailed()
                 }
 
