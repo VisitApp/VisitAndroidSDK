@@ -80,7 +80,7 @@ afterEvaluate {
 
                 groupId = 'com.getvisitapp'
                 artifactId = 'visit'
-                version = '3.0'
+                version = '3.1'
             }
         }
     }
