@@ -80,7 +80,7 @@ dependencies {
 
     implementation(project(":visit"))
     // implementation(files("visit-debug.aar"))
-
+//    implementation("com.github.VisitApp:VisitAndroidSDK:v3.1")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 
     implementation("androidx.core:core-ktx:1.17.0")
@@ -112,7 +112,6 @@ dependencies {
     implementation("com.squareup.retrofit2:converter-gson:$retrofitVersion")
 
     implementation("de.hdodenhof:circleimageview:3.1.0")
-    implementation("com.squareup.okhttp3:logging-interceptor:5.1.0")
 
     implementation("com.github.delight-im:Android-AdvancedWebView:v3.0.0")
 
