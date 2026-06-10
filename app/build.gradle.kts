@@ -80,7 +80,7 @@ dependencies {
 
 //    implementation(project(":visit"))
     // implementation(files("visit-debug.aar"))
-    implementation("com.github.VisitApp:VisitAndroidSDK:v3.1")
+    implementation("com.github.VisitApp:VisitAndroidSDK:v3.3")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 
     implementation("androidx.core:core-ktx:1.17.0")
