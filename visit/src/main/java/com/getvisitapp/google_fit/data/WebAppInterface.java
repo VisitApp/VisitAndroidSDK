@@ -70,6 +70,12 @@ public class WebAppInterface {
     }
 
     @JavascriptInterface
+    public void initializeManualSync(String startDate, String endDate) { //startDate "2026-02-01", endDate "2026-02-05"
+        Log.d("mytag", "initialManualSync() called. startDate: " + startDate + ",endDate: " + endDate);
+        listener.initializeManualSync(startDate, endDate);
+    }
+
+    @JavascriptInterface
     public void visitCredentialCallback(String apiBaseUrl, String authtoken) {
 
         Log.d("mytag", "visitCredentialCallback() called, apiBaseUrl: " + apiBaseUrl + " authtoken: " + authtoken);

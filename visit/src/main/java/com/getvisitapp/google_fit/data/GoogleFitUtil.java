@@ -15,6 +15,8 @@ import com.getvisitapp.google_fit.view.GoogleFitStatusListener;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import rx.Observable;
 import rx.Subscriber;
@@ -368,6 +370,51 @@ public class GoogleFitUtil implements GenericListener {
 
         }
 
+    }
+
+    public void sendManualDataToServer(String baseUrl, String authToken, long startTimeStamp, long endTimeStamp, String memberId, String tataAIG_base_url, String tata_aig_authToken, Runnable onSuccess, Runnable onFailure) {
+        if (stepsCounter == null || !stepsCounter.hasAccess()) {
+            runCallback(onFailure);
+            return;
+        }
+
+        if (startTimeStamp == 0 || endTimeStamp == 0 || endTimeStamp < startTimeStamp) {
+            runCallback(onFailure);
+            return;
+        }
+
+        syncStepHelper = new SyncStepHelper(getGoogleFitConnector(), baseUrl, authToken, tataAIG_base_url, tata_aig_authToken, memberId, context);
+
+        AtomicInteger pendingSyncs = new AtomicInteger(2);
+        AtomicBoolean callbackSent = new AtomicBoolean(false);
+
+        Runnable phaseSuccess = new Runnable() {
+            @Override
+            public void run() {
+                if (pendingSyncs.decrementAndGet() == 0 && callbackSent.compareAndSet(false, true)) {
+                    runCallback(onSuccess);
+                }
+            }
+        };
+
+        Runnable phaseFailure = new Runnable() {
+            @Override
+            public void run() {
+                if (callbackSent.compareAndSet(false, true)) {
+                    runCallback(onFailure);
+                }
+            }
+        };
+
+        syncStepHelper.dailySync(startTimeStamp, endTimeStamp, phaseSuccess, phaseFailure);
+        syncStepHelper.hourlySync(startTimeStamp, endTimeStamp, false, false, phaseSuccess, phaseFailure);
+
+    }
+
+    private void runCallback(Runnable callback) {
+        if (callback != null) {
+            callback.run();
+        }
     }
 
 }

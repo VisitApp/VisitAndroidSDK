@@ -135,7 +135,25 @@ public class SyncStepHelper {
 
     }
 
+    public void dailySync(long startTime, long endTime, Runnable onSuccess, Runnable onFailure) {
+        if (startTime == 0 || endTime == 0 || endTime < startTime) {
+            Log.d(TAG, "dailySync() skipped. Invalid manual sync range");
+            runCallback(onFailure);
+            return;
+        }
+
+        startSyncTime = startTime;
+        endSyncTime = endTime;
+        getSyncData(startTime, endTime, onSuccess, onFailure);
+        Log.d(TAG, "Manual Daily Sync Start Time: " + startTime);
+        Log.d(TAG, "Manual Daily Sync End Time: " + endTime);
+    }
+
     private void getSyncData(long start, long end) {
+        getSyncData(start, end, null, null);
+    }
+
+    private void getSyncData(long start, long end, Runnable onSuccess, Runnable onFailure) {
         Log.d(TAG, "startTime: " + start + ", endTime: " + end);
         Log.d(TAG, "getSyncData: ");
         activitySummarySubscriber = new Subscriber<ActivitySummaryGoal>() {
@@ -147,6 +165,7 @@ public class SyncStepHelper {
             @Override
             public void onError(Throwable e) {
                 e.printStackTrace();
+                runCallback(onFailure);
             }
 
             @Override
@@ -154,7 +173,7 @@ public class SyncStepHelper {
                 Log.d(TAG, "onNext: " + goals.toString());
 
 
-                showActivitySummary(goals);
+                showActivitySummary(goals, onSuccess, onFailure);
 
 
                 onCompleted();
@@ -186,10 +205,12 @@ public class SyncStepHelper {
                     .observeOn(AndroidSchedulers.mainThread())
                     .subscribe(activitySummarySubscriber);
             compositeSubscription.add(activitySummarySubscriber);
+        } else {
+            runCallback(onFailure);
         }
     }
 
-    private void showActivitySummary(ActivitySummaryGoal goals) {
+    private void showActivitySummary(ActivitySummaryGoal goals, Runnable onSuccess, Runnable onFailure) {
         ArrayList<Integer> arrayListCalories = new ArrayList<>();
         if (goals.calorie.getValues() == null) {
             for (int i = 0; i < goals.steps.getValues().size(); i++)
@@ -244,11 +265,15 @@ public class SyncStepHelper {
         postBody.add("fitnessData", jsonArray);
         postBody.addProperty("platform", "ANDROID");
         Log.d(TAG, "data sync api called:" + String.valueOf(postBody));
-        sendData1(postBody);
+        sendData1(postBody, onSuccess, onFailure);
 
     }
 
     private void sendData1(JsonObject payload) {
+        sendData1(payload, null, null);
+    }
+
+    private void sendData1(JsonObject payload, Runnable onSuccess, Runnable onFailure) {
         compositeSubscription.add(
                 mainActivityPresenter.sendData(payload)
                         .compose(Transformers.<ApiResponse>applySchedulers())
@@ -258,12 +283,14 @@ public class SyncStepHelper {
                                     public void call(ApiResponse apiResponse) {
                                         // success
                                         Log.d("mytag", "uploaded successfully");
+                                        runCallback(onSuccess);
                                     }
                                 },
                                 new Action1<Throwable>() {
                                     @Override
                                     public void call(Throwable throwable) {
                                         throwable.printStackTrace();
+                                        runCallback(onFailure);
                                     }
                                 }));
     }
@@ -315,6 +342,24 @@ public class SyncStepHelper {
 
         endTimeStamp = System.currentTimeMillis();
 
+        hourlySync(startTimeStamp, endTimeStamp, syncWithTataAIGServerOnly, true);
+
+
+    }
+
+    public void hourlySync(long startTimeStamp, long endTimeStamp, boolean syncWithTataAIGServerOnly, boolean updateLastSyncTimestamp) {
+        hourlySync(startTimeStamp, endTimeStamp, syncWithTataAIGServerOnly, updateLastSyncTimestamp, null, null);
+    }
+
+    public void hourlySync(long startTimeStamp, long endTimeStamp, boolean syncWithTataAIGServerOnly, boolean updateLastSyncTimestamp, Runnable onSuccess, Runnable onFailure) {
+        this.syncWithTataAIGServerOnly = syncWithTataAIGServerOnly;
+
+        if (startTimeStamp == 0 || endTimeStamp == 0 || endTimeStamp < startTimeStamp) {
+            Log.d(TAG, "hourlySync() skipped. Invalid manual sync range");
+            runCallback(onFailure);
+            return;
+        }
+
         Log.d(TAG, "startTimeStamp:" + readableFormat.format(startTimeStamp));
         Log.d(TAG, "endTimeStamp:" + readableFormat.format(endTimeStamp));
 
@@ -341,10 +386,29 @@ public class SyncStepHelper {
                                 Log.d(TAG, "Visit Hourly Sync finalRequest: " + finalJsonObject.toString());
 
                             } catch (JSONException e) {
-                                throw new RuntimeException(e);
+                                e.printStackTrace();
+                                runCallback(onFailure);
+                                return;
                             }
 
-                            syncHourlyDataWithVisit_Server(finalJsonObject);
+                            JSONObject finalRequest = new JSONObject();
+                            try {
+                                finalRequest.put("member_id", String.valueOf(memberId));
+                                finalRequest.put("data", tataAIG_sync_data);
+                                Log.d(TAG, "tata AIG finalRequest: " + finalRequest.toString());
+                            } catch (Exception e) {
+                                Log.d(TAG, "exception occured:" + e.getMessage());
+                                runCallback(onFailure);
+                                return;
+                            }
+
+                            syncHourlyDataWithVisit_Server(finalJsonObject, new Runnable() {
+                                @Override
+                                public void run() {
+                                    syncDateToTATA_Server(finalRequest, updateLastSyncTimestamp, onSuccess, onFailure);
+                                }
+                            }, onFailure);
+                            return;
                         }
 
 
@@ -357,9 +421,10 @@ public class SyncStepHelper {
                             finalRequest.put("member_id", String.valueOf(memberId));
                             finalRequest.put("data", tataAIG_sync_data);
                             Log.d(TAG, "tata AIG finalRequest: " + finalRequest.toString());
-                            syncDateToTATA_Server(finalRequest);
+                            syncDateToTATA_Server(finalRequest, updateLastSyncTimestamp, onSuccess, onFailure);
                         } catch (Exception e) {
                             Log.d(TAG, "exception occured:" + e.getMessage());
+                            runCallback(onFailure);
                         }
 
 
@@ -368,6 +433,7 @@ public class SyncStepHelper {
                     @Override
                     public void onError(Throwable e) {
                         e.printStackTrace();
+                        runCallback(onFailure);
                     }
 
                     @Override
@@ -515,6 +581,10 @@ public class SyncStepHelper {
     }
 
     private void syncHourlyDataWithVisit_Server(JSONObject jsonObject) {
+        syncHourlyDataWithVisit_Server(jsonObject, null, null);
+    }
+
+    private void syncHourlyDataWithVisit_Server(JSONObject jsonObject, Runnable onSuccess, Runnable onFailure) {
         mainActivityPresenter.syncDayWithServer(jsonObject).subscribeOn(Schedulers.io())
                 .doOnError(new Action1<Throwable>() {
                     @Override
@@ -527,16 +597,22 @@ public class SyncStepHelper {
                     @Override
                     public void call(Boolean aBoolean) {
                         Log.d("mytag", "Visit Hourly Data Sync Status: " + aBoolean);
+                        if (aBoolean) {
+                            runCallback(onSuccess);
+                        } else {
+                            runCallback(onFailure);
+                        }
                     }
                 }, new Action1<Throwable>() {
                     @Override
                     public void call(Throwable throwable) {
                         throwable.printStackTrace();
+                        runCallback(onFailure);
                     }
                 });
     }
 
-    private void syncDateToTATA_Server(JSONObject jsonObject) {
+    private void syncDateToTATA_Server(JSONObject jsonObject, boolean updateLastSyncTimestamp, Runnable onSuccess, Runnable onFailure) {
         mainActivityPresenter.syncDayWithTATA_AIG_Server(jsonObject).subscribeOn(Schedulers.io())
                 .doOnError(new Action1<Throwable>() {
                     @Override
@@ -555,6 +631,7 @@ public class SyncStepHelper {
                                 );
 
                         throwable.printStackTrace();
+                        runCallback(onFailure);
                     }
                 })
                 .observeOn(AndroidSchedulers.mainThread())
@@ -563,8 +640,10 @@ public class SyncStepHelper {
                     public void call(Boolean aBoolean) {
                         Log.d("mytag", "TATA AIG Sync Status: " + aBoolean);
                         if (aBoolean) {
-                            Calendar calendar = Calendar.getInstance();
-                            sharedPrefUtil.setTataAIGLastSyncTimeStamp(calendar.getTimeInMillis());
+                            if (updateLastSyncTimestamp) {
+                                Calendar calendar = Calendar.getInstance();
+                                sharedPrefUtil.setTataAIGLastSyncTimeStamp(calendar.getTimeInMillis());
+                            }
 
                             EventBus.getDefault()
                                     .post(new MessageEvent(
@@ -574,6 +653,9 @@ public class SyncStepHelper {
                                                     )
                                             )
                                     );
+                            runCallback(onSuccess);
+                        } else {
+                            runCallback(onFailure);
                         }
 
                     }
@@ -581,10 +663,17 @@ public class SyncStepHelper {
                     @Override
                     public void call(Throwable throwable) {
                         throwable.printStackTrace();
+                        runCallback(onFailure);
                     }
                 });
 
 
+    }
+
+    private void runCallback(Runnable callback) {
+        if (callback != null) {
+            callback.run();
+        }
     }
 
     public void sendHRAInCompleteStatusToTataAIG(JSONObject jsonObject) {

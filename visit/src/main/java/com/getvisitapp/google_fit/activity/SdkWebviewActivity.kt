@@ -65,6 +65,8 @@ import org.json.JSONException
 import org.json.JSONObject
 import tvi.webrtc.ContextUtils
 import java.io.File
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
@@ -703,6 +705,89 @@ class SdkWebviewActivity : AppCompatActivity(), VideoCallListener, GoogleFitStat
                     syncDataWithServer = true
                 })
             }
+        }
+    }
+
+    override fun initializeManualSync(startDate: String?, endDate: String?) {
+        try {
+            if (startDate.isNullOrBlank() || endDate.isNullOrBlank()) {
+                Log.d(TAG, "initializeManualSync() skipped. startDate or endDate is empty")
+                notifyManualSyncFailed()
+                return
+            }
+
+            val zoneId = ZoneId.systemDefault()
+            val startDateLocalDate = LocalDate.parse(startDate)
+            val endDateLocalDate = LocalDate.parse(endDate)
+
+            if (endDateLocalDate.isBefore(startDateLocalDate)) {
+                Log.d(TAG, "initializeManualSync() skipped. endDate is before startDate")
+                notifyManualSyncFailed()
+                return
+            }
+
+            val startTimeStamp = startDateLocalDate.atStartOfDay(zoneId).toInstant().toEpochMilli()
+            val endTimeStamp =
+                endDateLocalDate.plusDays(1).atStartOfDay(zoneId).toInstant().toEpochMilli() - 1
+
+            val baseUrl = visitApiBaseUrl ?: sharedPrefUtil.getVisitBaseUrl()
+            val authToken = authtoken ?: sharedPrefUtil.getVisitAuthToken()
+            val tataMemberId = memberId ?: sharedPrefUtil.getTATA_AIG_MemberId()
+
+            if (baseUrl.isNullOrBlank() || authToken.isNullOrBlank() || tataMemberId.isNullOrBlank()) {
+                Log.d(TAG, "initializeManualSync() skipped. Required credentials are missing")
+                notifyManualSyncFailed()
+                return
+            }
+
+            val normalizedBaseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+
+            runOnUiThread(Runnable {
+                binding.webview.evaluateJavascript(
+                    "window.syncingInProgress()", null
+                )
+                Log.d("mytag", "window.syncingInProgress() called")
+
+                googleFitUtil.sendManualDataToServer(
+                    normalizedBaseUrl,
+                    authToken,
+                    startTimeStamp,
+                    endTimeStamp,
+                    tataMemberId,
+                    tataAIG_base_url,
+                    tataAIG_auth_token,
+                    {
+                        notifyManualSyncCompleted()
+                    },
+                    {
+                        notifyManualSyncFailed()
+                    }
+                )
+            })
+        } catch (exception: Exception) {
+            Log.d(TAG, "initializeManualSync() skipped. Invalid date range: ${exception.message}")
+            notifyManualSyncFailed()
+        }
+
+
+
+    }
+
+    private fun notifyManualSyncCompleted() {
+        runOnUiThread {
+            binding.webview.evaluateJavascript(
+                "window.syncingCompleted()", null
+            )
+            Log.d("mytag", "window.syncingCompleted() called")
+        }
+    }
+
+    private fun notifyManualSyncFailed() {
+        runOnUiThread {
+            binding.webview.evaluateJavascript(
+                "window.syncingFailed()", null
+            )
+            Log.d("mytag", "window.syncingFailed() called")
         }
     }
 

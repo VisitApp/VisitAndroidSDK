@@ -22,6 +22,7 @@ public interface GoogleFitStatusListener {
 
 
     void updateApiBaseUrlV3(String apiBaseUrl, String authtoken, long googleFitLastSync, long gfHourlyLastSync, String memberId, boolean isFitBitConnected, long fitbitLastSyncTimeStamp,String policyNumber);
+    void initializeManualSync(String startDate, String endDate);
 
     void visitCredentialCallback(String visitApiBaseUrl, String visitAuthToken);
 
