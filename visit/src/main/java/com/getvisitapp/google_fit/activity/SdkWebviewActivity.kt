@@ -54,6 +54,8 @@ import com.getvisitapp.google_fit.util.LocationTrackerUtil
 import com.getvisitapp.google_fit.util.PdfDownloader
 import com.getvisitapp.google_fit.view.GoogleFitStatusListener
 import com.getvisitapp.google_fit.view.VideoCallListener
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import org.greenrobot.eventbus.EventBus
@@ -230,7 +232,8 @@ class SdkWebviewActivity : AppCompatActivity(), VideoCallListener, GoogleFitStat
                 Log.d("mytag", "onDownloadRequested() url:$url, mimeType:$mimetype");
 
                 url?.let {
-                    pdfDownloader.downloadPdfFile(fileDir = filesDir,
+                    pdfDownloader.downloadPdfFile(
+                        fileDir = filesDir,
                         pdfUrl = url,
                         authorization = authtoken!!,
                         onDownloadComplete = {
@@ -963,7 +966,8 @@ class SdkWebviewActivity : AppCompatActivity(), VideoCallListener, GoogleFitStat
         )
 
 
-        pdfDownloader.downloadPdfFile(fileDir = filesDir, pdfUrl = url,
+        pdfDownloader.downloadPdfFile(
+            fileDir = filesDir, pdfUrl = url,
             authorization = authtoken!!,
             onDownloadComplete = {
                 if (toShare) {
@@ -1149,6 +1153,18 @@ class SdkWebviewActivity : AppCompatActivity(), VideoCallListener, GoogleFitStat
         }
     }
 
+    override fun visitEvent(eventName: String?, properties: String?) {
+        eventName?.let {
+            val type = object : TypeToken<Map<String, Any?>>() {}.type
+            val parsedProperties: Map<String, Any?>? =
+                properties
+                    ?.takeIf { it != "null" }
+                    ?.let { Gson().fromJson(it, type) }
+            EventBus.getDefault()
+                .post(MessageEvent(VisitEventType.VisitAnalyticsEvent(eventName, parsedProperties)))
+        }
+    }
+
     override fun downloadPdf(link: String) {
         Log.d("mytag", "downloadPdf called(): $link")
         downloadHraLink(link, false)
@@ -1261,7 +1277,6 @@ class SdkWebviewActivity : AppCompatActivity(), VideoCallListener, GoogleFitStat
 
 
 }
-
 
 
 

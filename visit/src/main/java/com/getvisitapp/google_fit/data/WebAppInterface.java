@@ -5,6 +5,7 @@ import android.webkit.JavascriptInterface;
 
 import androidx.annotation.Keep;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.getvisitapp.google_fit.view.GoogleFitStatusListener;
 
@@ -199,6 +200,12 @@ public class WebAppInterface {
     public void setAuthToken(@NonNull String authToken) {
         Log.d("mytag", "setUserAuthToken called(): " + authToken);
         listener.setAuthToken(authToken);
+    }
+
+    @JavascriptInterface
+    public void visitEvent(String eventName, @Nullable String properties) {
+        Log.d("mytag", "visitEvent called(): eventName: " + eventName + " properties: " + properties);
+        listener.visitEvent(eventName, properties);
     }
 
 

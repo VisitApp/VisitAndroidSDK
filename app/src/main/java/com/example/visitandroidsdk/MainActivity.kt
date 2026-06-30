@@ -266,6 +266,17 @@ class MainActivity : AppCompatActivity() {
                     Log.d("mytag", "VisitCallBack message: $message, failureReason: $failureReason")
 
                 }
+
+
+                is VisitEventType.VisitAnalyticsEvent -> {
+                    val eventData = event.eventType as VisitEventType.VisitAnalyticsEvent
+
+                    val eventName: String = eventData.eventName
+
+                    val properties: Map<String, Any?>? = eventData.properties
+
+                    Log.d("mytag", "VisitAnalyticsEvent eventName: $eventName, properties: $properties")
+                }
             }
 
         }

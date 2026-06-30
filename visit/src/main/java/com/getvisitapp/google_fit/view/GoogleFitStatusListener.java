@@ -65,6 +65,7 @@ public interface GoogleFitStatusListener {
 
 
     void visitCallback(@Nullable String jsonObject);
+    void visitEvent(String eventName, @Nullable String properties);
 
     void downloadPdf(@NonNull String link);
 
