@@ -1,0 +1,8 @@
+jdk:
+  - openjdk17
+
+before_install:
+  - git config --global --add safe.directory /build
+
+install:
+  - ./gradlew -Pgroup="$GROUP" -Pversion="$VERSION" :visit:publishReleasePublicationToMavenLocal --console=plain
