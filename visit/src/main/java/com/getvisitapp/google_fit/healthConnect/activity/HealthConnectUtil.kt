@@ -19,6 +19,9 @@ import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import com.getvisitapp.google_fit.HealthConnectListener
 import com.getvisitapp.google_fit.healthConnect.contants.Contants
 import com.getvisitapp.google_fit.healthConnect.data.GraphDataOperationsHelper
+import com.getvisitapp.google_fit.healthConnect.data.GraphKey
+import com.getvisitapp.google_fit.healthConnect.data.PendingGraphRequests
+import com.getvisitapp.google_fit.healthConnect.data.deliverGraphResult
 import com.getvisitapp.google_fit.healthConnect.enums.HealthConnectConnectionState
 import com.getvisitapp.google_fit.healthConnect.helper.DailySyncManager
 import com.getvisitapp.google_fit.healthConnect.helper.HourlySyncManager
@@ -27,6 +30,7 @@ import com.getvisitapp.google_fit.healthConnect.model.apiRequestModel.DailySyncH
 import com.getvisitapp.google_fit.healthConnect.model.apiRequestModel.HourlyDataSyncRequest
 import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -58,7 +62,9 @@ class HealthConnectUtil(val context: Context, val listener: HealthConnectListene
             listener.logHealthConnectError(throwable)
         }
 
-    val scope = CoroutineScope(Dispatchers.IO + coroutineExceptionHandler)
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO + coroutineExceptionHandler)
+
+    private val graphRequests = PendingGraphRequests(scope)
 
     var healthConnectConnectionState: HealthConnectConnectionState =
         HealthConnectConnectionState.NONE
@@ -165,10 +171,7 @@ class HealthConnectUtil(val context: Context, val listener: HealthConnectListene
     }
 
     fun getVisitDashboardGraph() {
-        scope.launch {
-
-            getDailyStepAndSleepData()
-        }
+        scope.launch { deliverGraphResult(listener) { getDashboardData() } }
     }
 
     suspend fun getTodayStepData(): Long {
@@ -261,204 +264,46 @@ class HealthConnectUtil(val context: Context, val listener: HealthConnectListene
         return healthConnectConnectionState
     }
 
-    // 1. For the dashboard graph.
-//           Today's steps and sleep data.
-    private fun getDailyStepAndSleepData() {
-        scope.launch {
-            try {
-                val resultString =
-                    graphDataOperationsHelper.getTodayStepsAndSleepData(getHealthConnectClient())
-                listener.loadVisitWebViewGraphData(resultString)
+    /** Request-scoped dashboard response; no listener callback is emitted. */
+    suspend fun getDashboardData(): String = graphRequests.read(GraphKey("dashboard")) {
+        graphDataOperationsHelper.getTodayStepsAndSleepData(getHealthConnectClient())
+    }
 
-
-            } catch (e: Exception) {
-
-                e.printStackTrace()
+    /** Identical pending reads share work; different graph arguments remain independent. */
+    suspend fun getGraphData(type: String, frequency: String, timestamp: Long): String {
+        val supported = when (type) {
+            "steps", "distance", "calories" -> frequency in setOf("day", "week", "month")
+            "sleep" -> frequency in setOf("day", "week")
+            else -> false
+        }
+        require(supported) { "Unsupported graph type or frequency." }
+        return graphRequests.read(GraphKey(type, frequency, timestamp)) {
+            when (type to frequency) {
+                "steps" to "day" -> graphDataOperationsHelper.getDailyStepsData(timestamp)
+                "steps" to "week" -> graphDataOperationsHelper.getWeeklyStepsData(timestamp)
+                "steps" to "month" -> graphDataOperationsHelper.getMonthlyStepsData(timestamp)
+                "distance" to "day" -> graphDataOperationsHelper.getDailyDistanceData(timestamp)
+                "distance" to "week" -> graphDataOperationsHelper.getWeeklyDistanceData(timestamp)
+                "distance" to "month" -> graphDataOperationsHelper.getMonthlyDistanceData(timestamp)
+                "calories" to "day" -> graphDataOperationsHelper.getDailyCalorieData(timestamp)
+                "calories" to "week" -> graphDataOperationsHelper.getWeeklyCalorieData(timestamp)
+                "calories" to "month" -> graphDataOperationsHelper.getMonthlyCalorieData(timestamp)
+                "sleep" to "day" -> graphDataOperationsHelper.getDailySleepData(timestamp)
+                "sleep" to "week" -> graphDataOperationsHelper.getWeeklySleepData(timestamp)
+                else -> error("Graph request was not validated.")
             }
         }
     }
 
+    fun cancelPendingGraphRequests() = graphRequests.cancel()
 
-    //2.For all the details graph.
+    // Keep the existing listener-based entry point for other native consumers.
     fun getActivityData(type: String?, frequency: String?, timeStamp: Long) {
-        if (type != null && frequency != null) {
-            when (type) {
-                "steps" -> {
-                    when (frequency) {
-                        "day" -> {
-                            scope.launch {
-                                try {
-                                    val resultString =
-                                        graphDataOperationsHelper.getDailyStepsData(timeStamp)
-
-                                    listener.loadVisitWebViewGraphData(resultString)
-
-
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
-                            }
-
-
-                        }
-
-                        "week" -> {
-                            scope.launch {
-                                try {
-                                    val resultString =
-                                        graphDataOperationsHelper.getWeeklyStepsData(timeStamp)
-                                    listener.loadVisitWebViewGraphData(resultString)
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
-                            }
-
-                        }
-
-                        "month" -> {
-                            scope.launch {
-                                try {
-
-                                    val resultString =
-                                        graphDataOperationsHelper.getMonthlyStepsData(timeStamp)
-                                    listener.loadVisitWebViewGraphData(resultString)
-
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
-                            }
-
-                        }
-                    }
-                }
-
-                "distance" -> {
-                    when (frequency) {
-                        "day" -> {
-                            scope.launch {
-                                try {
-                                    val resultString =
-                                        graphDataOperationsHelper.getDailyDistanceData(timeStamp)
-                                    listener.loadVisitWebViewGraphData(resultString)
-
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
-                            }
-
-                        }
-
-                        "week" -> {
-                            scope.launch {
-                                try {
-                                    val resultString =
-                                        graphDataOperationsHelper.getWeeklyDistanceData(timeStamp)
-                                    listener.loadVisitWebViewGraphData(resultString)
-
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
-                            }
-
-                        }
-
-                        "month" -> {
-                            scope.launch {
-                                try {
-
-                                    val resultString =
-                                        graphDataOperationsHelper.getMonthlyDistanceData(timeStamp)
-                                    listener.loadVisitWebViewGraphData(resultString)
-
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
-                            }
-
-                        }
-                    }
-                }
-
-                "calories" -> {
-                    when (frequency) {
-                        "day" -> {
-
-                            scope.launch {
-                                try {
-
-                                    val resultString =
-                                        graphDataOperationsHelper.getDailyCalorieData(timeStamp)
-                                    listener.loadVisitWebViewGraphData(resultString)
-
-
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
-                            }
-                        }
-
-                        "week" -> {
-                            scope.launch {
-                                try {
-                                    val resultString =
-                                        graphDataOperationsHelper.getWeeklyCalorieData(timeStamp)
-                                    listener.loadVisitWebViewGraphData(resultString)
-
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
-                            }
-                        }
-
-                        "month" -> {
-                            scope.launch {
-                                try {
-
-                                    val resultString =
-                                        graphDataOperationsHelper.getMonthlyCalorieData(timeStamp)
-                                    listener.loadVisitWebViewGraphData(resultString)
-
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
-                            }
-
-                        }
-                    }
-                }
-
-                "sleep" -> {
-                    when (frequency) {
-                        "day" -> {
-                            scope.launch {
-                                try {
-
-                                    val resultString =
-                                        graphDataOperationsHelper.getDailySleepData(timeStamp)
-
-                                    listener.loadVisitWebViewGraphData(resultString)
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
-                            }
-
-                        }
-
-                        "week" -> {
-                            scope.launch {
-                                try {
-
-                                    val resultString =
-                                        graphDataOperationsHelper.getWeeklySleepData(timeStamp)
-                                    listener.loadVisitWebViewGraphData(resultString)
-
-                                } catch (e: Exception) {
-                                    e.printStackTrace()
-                                }
-                            }
-                        }
-                    }
-                }
+        scope.launch {
+            deliverGraphResult(listener) {
+                requireNotNull(type) { "Missing graph type." }
+                requireNotNull(frequency) { "Missing graph frequency." }
+                getGraphData(type, frequency, timeStamp)
             }
         }
     }

@@ -38,10 +38,17 @@ android {
         buildConfig false
     }
 
+    testOptions { unitTests.all { useJUnitPlatform() } }
+
     namespace 'com.getvisitapp.google_fit'
 }
 
 dependencies {
+    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit5:2.2.20'
+    testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.4'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.4'
+
     implementation "org.jetbrains.kotlin:kotlin-stdlib:2.2.20"
     implementation 'androidx.core:core-ktx:1.13.1'
     implementation 'androidx.appcompat:appcompat:1.7.1'
@@ -78,7 +85,7 @@ afterEvaluate {
 
                 groupId = 'com.getvisitapp'
                 artifactId = 'visit'
-                version = '3.3'
+                version = '3.3-concurrency-local'
             }
         }
     }
