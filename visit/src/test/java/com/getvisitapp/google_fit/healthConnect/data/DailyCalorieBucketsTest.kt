@@ -4,7 +4,6 @@ import com.getvisitapp.google_fit.healthConnect.model.internal.HealthMetricsWith
 import java.time.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 
 class DailyCalorieBucketsTest {
     private val start = LocalDate.of(2026, 11, 11).atStartOfDay()
@@ -17,14 +16,13 @@ class DailyCalorieBucketsTest {
             HealthMetricsWithDateTime(dateTime = start.plusHours(2)),
         )
 
-        assertEquals(20L, DailyCalorieBuckets(hours, hasReadableCalories = true).displayedTotal())
+        assertEquals(20L, hours.sumDisplayedCalorieKcal())
     }
 
     @Test
-    fun distinguishesAReadableZeroFromMissingRecords() {
+    fun preservesAReadableZero() {
         val hours = listOf(HealthMetricsWithDateTime(calorie = 0.0, dateTime = start))
 
-        assertEquals(0L, DailyCalorieBuckets(hours, hasReadableCalories = true).displayedTotal())
-        assertNull(DailyCalorieBuckets(hours, hasReadableCalories = false).displayedTotal())
+        assertEquals(0L, hours.sumDisplayedCalorieKcal())
     }
 }

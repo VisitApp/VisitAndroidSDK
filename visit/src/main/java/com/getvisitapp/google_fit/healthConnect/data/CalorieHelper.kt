@@ -5,6 +5,7 @@ import androidx.health.connect.client.aggregate.AggregationResultGroupedByDurati
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.request.AggregateGroupByDurationRequest
 import androidx.health.connect.client.request.AggregateRequest
+import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.getvisitapp.google_fit.healthConnect.TimeUtil
 import com.getvisitapp.google_fit.healthConnect.helper.ActivityTimeHelper
@@ -21,20 +22,15 @@ import java.time.ZoneId
 
 internal fun HealthMetricsWithDateTime.displayedCalorieKcal(): Int = calorie?.toInt() ?: 0
 
-internal data class DailyCalorieBuckets(
-    val hours: List<HealthMetricsWithDateTime>,
-    val hasReadableCalories: Boolean,
-) {
-    fun displayedTotal(): Long? =
-        if (hasReadableCalories) hours.sumOf { it.displayedCalorieKcal().toLong() } else null
-}
+internal fun List<HealthMetricsWithDateTime>.sumDisplayedCalorieKcal(): Long =
+    sumOf { it.displayedCalorieKcal().toLong() }
 
 class CalorieHelper(private val healthConnectClient: HealthConnectClient) {
     val activityTimeHelper = ActivityTimeHelper()
 
     suspend fun getDailyCalorieData(selectedDate: LocalDate): HealthMetricData {
         val (start, end) = TimeUtil.getSelectedDateStartTimeAndEndTimeInstant(selectedDate)
-        val buckets = readDailyCalorieBuckets(start, end)
+        val hours = readDailyCalorieHours(start, end)
         val aggregatedData = healthConnectClient.aggregate(
             AggregateRequest(
                 metrics = setOf(TotalCaloriesBurnedRecord.ENERGY_TOTAL),
@@ -43,7 +39,7 @@ class CalorieHelper(private val healthConnectClient: HealthConnectClient) {
         )
 
         return HealthMetricData().apply {
-            healthMetricWithDateTime = buckets.hours
+            healthMetricWithDateTime = hours
             totalCalorie = aggregatedData[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories
             totalActivityTime = activityTimeHelper.getTotalActivityTimeForDay(
                 healthConnectClient,
@@ -55,10 +51,22 @@ class CalorieHelper(private val healthConnectClient: HealthConnectClient) {
 
     internal suspend fun getDailyDisplayedCalorieTotal(selectedDate: LocalDate): Long? {
         val (start, end) = TimeUtil.getSelectedDateStartTimeAndEndTimeInstant(selectedDate)
-        return readDailyCalorieBuckets(start, end).displayedTotal()
+        // Health Connect can fill an empty aggregate with estimated resting calories.
+        val records = healthConnectClient.readRecords(
+            ReadRecordsRequest(
+                TotalCaloriesBurnedRecord::class,
+                timeRangeFilter = TimeRangeFilter.between(start, end),
+                pageSize = 1,
+            )
+        )
+        if (records.records.isEmpty()) return null
+        return readDailyCalorieHours(start, end).sumDisplayedCalorieKcal()
     }
 
-    private suspend fun readDailyCalorieBuckets(start: Instant, end: Instant): DailyCalorieBuckets {
+    private suspend fun readDailyCalorieHours(
+        start: Instant,
+        end: Instant,
+    ): List<HealthMetricsWithDateTime> {
         val zone = ZoneId.systemDefault()
         val startOfDay = LocalDateTime.ofInstant(start, zone).toLocalDate().atStartOfDay()
         val hours = List(24) { hour ->
@@ -72,13 +80,10 @@ class CalorieHelper(private val healthConnectClient: HealthConnectClient) {
             )
         )
 
-        var hasReadableCalories = false
         // Preserve the graph's cutoff for hours that have yet to finish.
         val cutoff = LocalDateTime.now().minusHours(1)
         for (result in response) {
             val calories = result.result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories
-            if (calories != null) hasReadableCalories = true
-
             val bucketTime = LocalDateTime.ofInstant(result.startTime, zone)
             val index = hours.indexOf(HealthMetricsWithDateTime(dateTime = bucketTime))
             if (index >= 0) {
@@ -86,7 +91,7 @@ class CalorieHelper(private val healthConnectClient: HealthConnectClient) {
             }
         }
 
-        return DailyCalorieBuckets(hours, hasReadableCalories)
+        return hours
     }
 
     suspend fun getWeeklyCalorieData(
