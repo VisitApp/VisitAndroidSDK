@@ -35,6 +35,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.time.LocalDate
 
 
 //https://developer.android.com/reference/kotlin/androidx/health/connect/client/records/package-summary#classes
@@ -268,6 +269,10 @@ class HealthConnectUtil(val context: Context, val listener: HealthConnectListene
     suspend fun getDashboardData(): String = graphRequests.read(GraphKey("dashboard")) {
         graphDataOperationsHelper.getTodayStepsAndSleepData(getHealthConnectClient())
     }
+
+    /** Sums today's displayed hourly calorie buckets, or returns null when no data is readable. */
+    suspend fun getTodayCaloriesBurned(): Long? =
+        graphDataOperationsHelper.calorieHelper.getDailyDisplayedCalorieTotal(LocalDate.now())
 
     /** Identical pending reads share work; different graph arguments remain independent. */
     suspend fun getGraphData(type: String, frequency: String, timestamp: Long): String {

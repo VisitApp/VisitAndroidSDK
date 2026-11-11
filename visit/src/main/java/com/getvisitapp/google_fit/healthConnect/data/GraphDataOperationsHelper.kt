@@ -386,8 +386,8 @@ class GraphDataOperationsHelper(healthConnectClient: HealthConnectClient) {
 
 
         //Formatting the string before sending it to webapp.
-        val calorieSeparated = healthMetricData.healthMetricWithDateTime?.map { it.calorie }
-            ?.joinToString(separator = ",") { calorie -> if (calorie == null) "0" else "${calorie.toInt()}" }
+        val calorieSeparated = healthMetricData.healthMetricWithDateTime
+            ?.joinToString(separator = ",") { it.displayedCalorieKcal().toString() }
 
         val webString =
             "DetailedGraph.updateData([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24],[$calorieSeparated], 'calories', 'day','${duration?.toMinutes()}')"

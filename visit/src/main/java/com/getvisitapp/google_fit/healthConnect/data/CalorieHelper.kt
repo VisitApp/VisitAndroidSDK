@@ -19,149 +19,75 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 
+internal fun HealthMetricsWithDateTime.displayedCalorieKcal(): Int = calorie?.toInt() ?: 0
+
+internal data class DailyCalorieBuckets(
+    val hours: List<HealthMetricsWithDateTime>,
+    val hasReadableCalories: Boolean,
+) {
+    fun displayedTotal(): Long? =
+        if (hasReadableCalories) hours.sumOf { it.displayedCalorieKcal().toLong() } else null
+}
+
 class CalorieHelper(private val healthConnectClient: HealthConnectClient) {
     val activityTimeHelper = ActivityTimeHelper()
 
-    suspend fun getDailyCalorieData(
-        selectedDate: LocalDate
-    ): HealthMetricData {
-        val selectedDateTimeInstant =
-            TimeUtil.getSelectedDateStartTimeAndEndTimeInstant(selectedDate)
-        val healthMetricData = aggregateCalorieForTheDayForEachHoursBasedOnDuration(
-            selectedDateTimeInstant.first, selectedDateTimeInstant.second
+    suspend fun getDailyCalorieData(selectedDate: LocalDate): HealthMetricData {
+        val (start, end) = TimeUtil.getSelectedDateStartTimeAndEndTimeInstant(selectedDate)
+        val buckets = readDailyCalorieBuckets(start, end)
+        val aggregatedData = healthConnectClient.aggregate(
+            AggregateRequest(
+                metrics = setOf(TotalCaloriesBurnedRecord.ENERGY_TOTAL),
+                timeRangeFilter = TimeRangeFilter.between(start, end)
+            )
         )
-        return healthMetricData
-    }
 
-    //1. Find the calorie travelled in each hour of the day.
-    //2. Find the total activity time
-    //3. Find the total calorie.
-    private suspend fun aggregateCalorieForTheDayForEachHoursBasedOnDuration(
-        startDateInstant: Instant,
-        endDateInstant: Instant
-    ): HealthMetricData {
-
-        val finalHealthMetricData = HealthMetricData()
-
-        val startDateTimeOfTheDay =
-            LocalDateTime.ofInstant(startDateInstant, ZoneId.systemDefault()).withHour(0)
-                .withMinute(0).withSecond(0).withNano(0)
-
-
-        //Here we are making a list which will contain calorie for each hour of the day.
-        val healthMetricsWithDateTimeList = mutableListOf<HealthMetricsWithDateTime>()
-
-
-        // Loop to add each hour of the day
-        //Prefilling the calorie as 0.
-        for (i in 0..23) {
-            // Add the LocalDateTime to the list
-            healthMetricsWithDateTimeList.add(
-                HealthMetricsWithDateTime(
-                    dateTime = startDateTimeOfTheDay.plusHours(i.toLong())
-                )
+        return HealthMetricData().apply {
+            healthMetricWithDateTime = buckets.hours
+            totalCalorie = aggregatedData[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories
+            totalActivityTime = activityTimeHelper.getTotalActivityTimeForDay(
+                healthConnectClient,
+                startTime = start,
+                endTime = end,
             )
         }
+    }
 
+    internal suspend fun getDailyDisplayedCalorieTotal(selectedDate: LocalDate): Long? {
+        val (start, end) = TimeUtil.getSelectedDateStartTimeAndEndTimeInstant(selectedDate)
+        return readDailyCalorieBuckets(start, end).displayedTotal()
+    }
 
-//            Timber.d("healthMetricsWithDateTimeList: $healthMetricsWithDateTimeList")
-
-
-        //Running aggregation function to get the calorie for each hour of the day.
+    private suspend fun readDailyCalorieBuckets(start: Instant, end: Instant): DailyCalorieBuckets {
+        val zone = ZoneId.systemDefault()
+        val startOfDay = LocalDateTime.ofInstant(start, zone).toLocalDate().atStartOfDay()
+        val hours = List(24) { hour ->
+            HealthMetricsWithDateTime(dateTime = startOfDay.plusHours(hour.toLong()))
+        }
         val response = healthConnectClient.aggregateGroupByDuration(
             AggregateGroupByDurationRequest(
-                metrics = setOf(
-                    TotalCaloriesBurnedRecord.ENERGY_TOTAL,
-                ),
-                timeRangeFilter = TimeRangeFilter.between(startDateInstant, endDateInstant),
+                metrics = setOf(TotalCaloriesBurnedRecord.ENERGY_TOTAL),
+                timeRangeFilter = TimeRangeFilter.between(start, end),
                 timeRangeSlicer = Duration.ofHours(1)
             )
         )
 
+        var hasReadableCalories = false
+        // Preserve the graph's cutoff for hours that have yet to finish.
+        val cutoff = LocalDateTime.now().minusHours(1)
+        for (result in response) {
+            val calories = result.result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories
+            if (calories != null) hasReadableCalories = true
 
-        //The returned list can be sparse, so the days for calorie are 0 may not be included in this list.
-        response.forEach { result: AggregationResultGroupedByDuration ->
-
-
-            val bucketStartDateTime: LocalDateTime =
-                LocalDateTime.ofInstant(result.startTime, ZoneId.systemDefault())
-
-            val bucketEndDateTime =
-                LocalDateTime.ofInstant(result.endTime, ZoneId.systemDefault())
-
-            Timber.d(
-                "calorie total: ${result.result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories}, bucketStartDateTime: $bucketStartDateTime ," + "bucketEndDateTime: $bucketEndDateTime,  " + "startTime:${result.startTime} ," + "endTime: ${result.endTime}"
-            )
-
-            // Check if bucketStartDateTime is in the list
-            val isPresent = healthMetricsWithDateTimeList.contains(
-                HealthMetricsWithDateTime(dateTime = bucketStartDateTime)
-            )
-
-            if (isPresent) {
-                val index = healthMetricsWithDateTimeList.indexOf(
-                    HealthMetricsWithDateTime(
-                        dateTime = bucketStartDateTime
-                    )
-                )
-
-                //assigning the calorie count for that date.
-                //NOTE: Health Connect give the future calorie count by dividing the total count equally.
-                //We need to prevent this while showing user the data.
-                //Simply makes the calorie as 0, if the time has not been passed yet.
-
-                healthMetricsWithDateTimeList[index].calorie =
-                    if (healthMetricsWithDateTimeList[index].dateTime.isBefore(
-                            LocalDateTime.now().minusHours(1)
-                        )
-                    ) {
-                        result.result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories
-                    } else {
-                        0.0
-                    }
-
+            val bucketTime = LocalDateTime.ofInstant(result.startTime, zone)
+            val index = hours.indexOf(HealthMetricsWithDateTime(dateTime = bucketTime))
+            if (index >= 0) {
+                hours[index].calorie = if (bucketTime.isBefore(cutoff)) calories else 0.0
             }
         }
 
-
-
-        finalHealthMetricData.healthMetricWithDateTime = healthMetricsWithDateTimeList
-
-
-        val aggregatedData = healthConnectClient.aggregate(
-            AggregateRequest(
-                metrics = setOf(
-                    TotalCaloriesBurnedRecord.ENERGY_TOTAL,
-                ), timeRangeFilter = TimeRangeFilter.between(startDateInstant, endDateInstant)
-            )
-        )
-
-        val totalCalorie: Double? =
-            aggregatedData[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.inKilocalories
-
-        finalHealthMetricData.totalCalorie = totalCalorie
-
-
-        val duration = activityTimeHelper.getTotalActivityTimeForDay(
-            healthConnectClient,
-            startTime = startDateInstant,
-            endTime = endDateInstant,
-        )
-
-        finalHealthMetricData.totalActivityTime = duration
-
-//            Timber.d("totalCalorie:$totalCalorie, duration: $duration")
-//
-        Timber.d("healthMetricsWithDateTimeList: $healthMetricsWithDateTimeList")
-
-        return finalHealthMetricData;
-
+        return DailyCalorieBuckets(hours, hasReadableCalories)
     }
-
-    /**
-     * 2. Get calorie data of a particular week
-     *  @param selectedDate: this can be any date for which you want to find the weekly calorie data.
-     */
 
     suspend fun getWeeklyCalorieData(
         selectedDate: LocalDate
